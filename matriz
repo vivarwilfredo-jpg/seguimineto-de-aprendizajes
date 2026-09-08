@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>I.E. San Pedro - Sistema de Seguimiento a los Aprendizajes 2026</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js + DataLabels Plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans min-h-screen p-4 md:p-6">
+
+  <div class="max-w-6xl mx-auto w-full bg-white shadow-2xl rounded-xl border border-slate-300 p-6 flex flex-col gap-6">
+
+    <!-- CABECERA Y CONTROLES -->
+    <div class="bg-[#1b365d] text-white rounded-lg p-5 shadow-md flex flex-col gap-4">
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-600 pb-3 gap-2">
+        <div class="flex items-center gap-3">
+          <i data-lucide="bar-chart-2" class="w-8 h-8 text-sky-400"></i>
+          <div>
+            <h1 class="text-xl font-bold tracking-wide uppercase leading-tight">
+              I.E. SAN PEDRO - SISTEMA DE SEGUIMIENTO A LOS APRENDIZAJES 2026
+            </h1>
+            <p class="text-xs text-sky-300 font-medium mt-0.5">
+              CREADO POR ALEJANDRO VIVAR GAVIDIA - SUBDIRECTOR
+            </p>
+          </div>
+        </div>
+        <button id="btnReload" onclick="fetchGoogleSheetsData()" class="flex items-center gap-2 px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold rounded transition shadow mt-2 md:mt-0">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          <span>Sincronizar Datos</span>
+        </button>
+      </div>
+
+      <!-- FILTROS -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-slate-900 text-xs font-medium">
+        
+        <div>
+          <label class="text-slate-200 block mb-1 font-semibold">Etapa / Periodo</label>
+          <select id="filterEtapa" class="w-full bg-slate-800 text-white border border-slate-600 rounded p-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+            <option value="TODOS">Todas las Etapas</option>
+            <option value="EVALUACION DIAGNOSTICA">Evaluación Diagnóstica</option>
+            <option value="I BIMESTRE">I Bimestre</option>
+            <option value="II BIMESTRE">II Bimestre</option>
+            <option value="III BIMESTRE">III Bimestre</option>
+            <option value="IV BIMESTRE">IV Bimestre</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-slate-200 block mb-1 font-semibold">Área Curricular</label>
+          <select id="filterArea" onchange="onAreaChange()" class="w-full bg-slate-800 text-white border border-slate-600 rounded p-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+            <option value="TODOS">Todas las Áreas</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-slate-200 block mb-1 font-semibold">Competencia</label>
+          <select id="filterCompetencia" class="w-full bg-slate-800 text-white border border-slate-600 rounded p-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+            <option value="TODOS">Todas las Competencias</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-slate-200 block mb-1 font-semibold">Grado</label>
+          <select id="filterGrado" class="w-full bg-slate-800 text-white border border-slate-600 rounded p-2 focus:outline-none focus:ring-2 focus:ring-sky-400">
+            <option value="TODOS">Todos los Grados</option>
+          </select>
+        </div>
+
+        <div class="flex items-end sm:col-span-2 lg:col-span-1">
+          <button onclick="applyFilters()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded transition flex items-center justify-center gap-2 shadow">
+            <i data-lucide="search" class="w-4 h-4"></i>
+            <span>Consultar</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- BANNER DE ALERTA LOGRO SATISFACTORIO (A + AD) -->
+    <div id="alertContainerSat" class="hidden rounded-lg p-4 border flex items-center gap-3 shadow-md transition-all duration-300">
+      <i id="alertIconSat" data-lucide="award" class="w-6 h-6 flex-shrink-0"></i>
+      <div class="text-sm font-semibold" id="alertTextSat"></div>
+    </div>
+
+    <!-- SECCIÓN: LOGRO SATISFACTORIO (A + AD) -->
+    <div class="border border-emerald-500 rounded-lg overflow-hidden shadow-md bg-white">
+      <div class="bg-[#008744] text-white px-4 py-2 font-bold text-sm tracking-wide uppercase flex justify-between items-center">
+        <span>Logro Satisfactorio Consolidado (Nivel A + Nivel AD)</span>
+        <span id="labelCompSat" class="text-xs font-normal text-emerald-100 italic"></span>
+      </div>
+      <div class="p-4 relative h-64">
+        <canvas id="chartLogroSat"></canvas>
+      </div>
+    </div>
+
+    <!-- BANNER DE ALERTA NIVEL C -->
+    <div id="alertContainerC" class="hidden rounded-lg p-4 border flex items-center gap-3 shadow-md transition-all duration-300">
+      <i id="alertIconC" data-lucide="alert-triangle" class="w-6 h-6 flex-shrink-0"></i>
+      <div class="text-sm font-semibold" id="alertTextC"></div>
+    </div>
+
+    <!-- SECCIÓN 1: NIVEL DE LOGRO C -->
+    <div class="border border-slate-300 rounded-lg overflow-hidden shadow-sm bg-white">
+      <div class="bg-[#1b365d] text-white px-4 py-2 font-bold text-sm tracking-wide uppercase flex justify-between items-center">
+        <span>Evolución del Nivel de Logro C (En Inicio)</span>
+        <span id="labelCompC" class="text-xs font-normal text-slate-200 italic"></span>
+      </div>
+      <div class="p-4 relative h-64">
+        <canvas id="chartNivelC"></canvas>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 2: NIVEL B Y NIVEL A -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      
+      <!-- NIVEL B -->
+      <div class="border border-slate-300 rounded-lg overflow-hidden shadow-sm bg-white flex flex-col">
+        <div class="bg-[#ffb000] text-slate-900 px-4 py-2 font-bold text-sm tracking-wide uppercase">
+          Evolución Nivel B (En Proceso)
+        </div>
+        <div class="p-4 relative h-60 flex-grow">
+          <canvas id="chartNivelB"></canvas>
+        </div>
+      </div>
+
+      <!-- NIVEL A -->
+      <div class="border border-slate-300 rounded-lg overflow-hidden shadow-sm bg-white flex flex-col">
+        <div class="bg-[#7ac143] text-slate-900 px-4 py-2 font-bold text-sm tracking-wide uppercase">
+          Evolución Nivel A (Logro Esperado)
+        </div>
+        <div class="p-4 relative h-60 flex-grow">
+          <canvas id="chartNivelA"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SECCIÓN 3: NIVEL AD (LOGRO DESTACADO) -->
+    <div class="border border-slate-300 rounded-lg overflow-hidden shadow-sm bg-white">
+      <div class="bg-[#008744] text-white px-4 py-2 font-bold text-sm tracking-wide uppercase">
+        Evolución Nivel AD (Logro Destacado)
+      </div>
+      <div class="p-4 relative h-60">
+        <canvas id="chartNivelAD"></canvas>
+      </div>
+    </div>
+
+    <!-- SECCIÓN 4: TABLA CONSOLIDADA -->
+    <div class="border border-slate-300 rounded-lg overflow-hidden shadow-sm bg-white">
+      <div class="bg-[#1b365d] text-white px-4 py-2 font-bold text-sm tracking-wide uppercase">
+        Evolución por Nivel de Logro (%)
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-center border-collapse text-xs md:text-sm font-semibold">
+          <thead>
+            <tr class="bg-[#2a4d7c] text-white border-b border-slate-400 uppercase">
+              <th class="p-2.5 border-r border-slate-400 text-left w-36">Nivel</th>
+              <th class="p-2.5 border-r border-slate-400">Diagnóstico</th>
+              <th class="p-2.5 border-r border-slate-400">I Bimestre</th>
+              <th class="p-2.5 border-r border-slate-400">II Bimestre</th>
+              <th class="p-2.5 border-r border-slate-400">III Bimestre</th>
+              <th class="p-2.5">IV Bimestre</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-300">
+            <tr>
+              <td class="p-2 bg-[#b30000] text-white font-bold text-left border-r border-slate-300">C</td>
+              <td id="cell-C-0" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-C-1" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-C-2" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-C-3" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-C-4" class="p-2">0%</td>
+            </tr>
+            <tr>
+              <td class="p-2 bg-[#ffb000] text-slate-900 font-bold text-left border-r border-slate-300">B</td>
+              <td id="cell-B-0" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-B-1" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-B-2" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-B-3" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-B-4" class="p-2">0%</td>
+            </tr>
+            <tr>
+              <td class="p-2 bg-[#7ac143] text-slate-900 font-bold text-left border-r border-slate-300">A</td>
+              <td id="cell-A-0" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-A-1" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-A-2" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-A-3" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-A-4" class="p-2">0%</td>
+            </tr>
+            <tr>
+              <td class="p-2 bg-[#008744] text-white font-bold text-left border-r border-slate-300">AD</td>
+              <td id="cell-AD-0" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-AD-1" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-AD-2" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-AD-3" class="p-2 border-r border-slate-300">0%</td>
+              <td id="cell-AD-4" class="p-2">0%</td>
+            </tr>
+            <tr class="bg-emerald-100 font-bold text-emerald-900 border-t border-emerald-400">
+              <td class="p-2 text-left border-r border-emerald-300">LOGRO SATISFACTORIO (A+AD)</td>
+              <td id="cell-Sat-0" class="p-2 border-r border-emerald-300">0%</td>
+              <td id="cell-Sat-1" class="p-2 border-r border-emerald-300">0%</td>
+              <td id="cell-Sat-2" class="p-2 border-r border-emerald-300">0%</td>
+              <td id="cell-Sat-3" class="p-2 border-r border-emerald-300">0%</td>
+              <td id="cell-Sat-4" class="p-2">0%</td>
+            </tr>
+            <tr class="bg-slate-200 font-bold text-slate-900 border-t-2 border-slate-400">
+              <td class="p-2 text-left border-r border-slate-300">TOTAL</td>
+              <td id="cell-tot-0" class="p-2 border-r border-slate-300">100%</td>
+              <td id="cell-tot-1" class="p-2 border-r border-slate-300">100%</td>
+              <td id="cell-tot-2" class="p-2 border-r border-slate-300">100%</td>
+              <td id="cell-tot-3" class="p-2 border-r border-slate-300">100%</td>
+              <td id="cell-tot-4" class="p-2">100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    Chart.register(ChartDataLabels);
+
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwtwpvMqS5uRNRn1xgmCpsBczq4kLeZwqxqmZBrzRTUlxYNby63FsL7y8cJ_x2eH4f5/exec";
+
+    const ETAPAS_ORDEN = ["EVALUACION DIAGNOSTICA", "I BIMESTRE", "II BIMESTRE", "III BIMESTRE", "IV BIMESTRE"];
+    const ETAPAS_LABELS = ["DIAGNÓSTICO", "I BIMESTRE", "II BIMESTRE", "III BIMESTRE", "IV BIMESTRE"];
+
+    let rawDatabase = [];
+    let chartSat = null, chartC = null, chartB = null, chartA = null, chartAD = null;
+
+    async function fetchGoogleSheetsData() {
+      const btn = document.getElementById('btnReload');
+      btn.classList.add('opacity-50', 'pointer-events-none');
+
+      try {
+        const response = await fetch(SCRIPT_URL);
+        const data = await response.json();
+        
+        rawDatabase = data.map(item => {
+          let pVal = parseFloat(item.PORCENTAJE || item.porcentaje || 0);
+          if (pVal <= 1 && pVal > 0) pVal = pVal * 100;
+
+          return {
+            etapa: String(item.ETAPA || item.etapa || '').trim(),
+            area: String(item.ÁREA || item.AREA || item.area || '').trim(),
+            competencia: String(item.COMPETENCIAS || item.competencia || '').trim(),
+            grado: String(item.GRADO || item.grado || '').trim(),
+            nivel: String(item.NIVELES || item.nivel || '').trim(),
+            porcentaje: pVal
+          };
+        });
+
+        populateFilters();
+        applyFilters();
+      } catch (error) {
+        console.error("Error al cargar datos:", error);
+      } finally {
+        btn.classList.remove('opacity-50', 'pointer-events-none');
+      }
+    }
+
+    function populateFilters() {
+      const selectArea = document.getElementById('filterArea');
+      const selectGrado = document.getElementById('filterGrado');
+
+      const areas = [...new Set(rawDatabase.map(d => d.area))].filter(Boolean);
+      const grados = [...new Set(rawDatabase.map(d => d.grado))].filter(Boolean);
+
+      selectArea.innerHTML = '<option value="TODOS">Todas las Áreas</option>';
+      areas.forEach(a => selectArea.innerHTML += `<option value="${a}">${a}</option>`);
+
+      selectGrado.innerHTML = '<option value="TODOS">Todos los Grados</option>';
+      grados.forEach(g => selectGrado.innerHTML += `<option value="${g}">${g}</option>`);
+
+      onAreaChange();
+    }
+
+    function onAreaChange() {
+      const areaVal = document.getElementById('filterArea').value;
+      const compSelect = document.getElementById('filterCompetencia');
+      
+      compSelect.innerHTML = '<option value="TODOS">Todas las Competencias</option>';
+      
+      const filtered = areaVal === 'TODOS' ? rawDatabase : rawDatabase.filter(d => d.area === areaVal);
+      const competencias = [...new Set(filtered.map(d => d.competencia))].filter(Boolean);
+
+      competencias.forEach(c => compSelect.innerHTML += `<option value="${c}">${c}</option>`);
+    }
+
+    function applyFilters() {
+      const valEtapa = document.getElementById('filterEtapa').value;
+      const valArea = document.getElementById('filterArea').value;
+      const valComp = document.getElementById('filterCompetencia').value;
+      const valGrado = document.getElementById('filterGrado').value;
+
+      const subTitle = valComp !== 'TODOS' ? valComp : (valArea !== 'TODOS' ? valArea : 'Visión General');
+      document.getElementById('labelCompC').textContent = subTitle;
+      document.getElementById('labelCompSat').textContent = subTitle;
+
+      const filtered = rawDatabase.filter(item => {
+        const matchEtapa = (valEtapa === 'TODOS' || item.etapa === valEtapa);
+        const matchArea = (valArea === 'TODOS' || item.area === valArea);
+        const matchComp = (valComp === 'TODOS' || item.competencia === valComp);
+        const matchGrado = (valGrado === 'TODOS' || item.grado === valGrado);
+        return matchEtapa && matchArea && matchComp && matchGrado;
+      });
+
+      const matrix = {
+        'C': [0, 0, 0, 0, 0],
+        'B': [0, 0, 0, 0, 0],
+        'A': [0, 0, 0, 0, 0],
+        'AD': [0, 0, 0, 0, 0]
+      };
+
+      ETAPAS_ORDEN.forEach((etapa, idx) => {
+        ['C', 'B', 'A', 'AD'].forEach(nivel => {
+          const subset = filtered.filter(d => d.etapa === etapa && d.nivel === nivel);
+          if (subset.length > 0) {
+            const sum = subset.reduce((acc, curr) => acc + curr.porcentaje, 0);
+            matrix[nivel][idx] = parseFloat((sum / subset.length).toFixed(1));
+          }
+        });
+      });
+
+      // Calcular arreglo para Logro Satisfactorio (A + AD)
+      const dataSat = matrix['A'].map((valA, idx) => parseFloat((valA + matrix['AD'][idx]).toFixed(1)));
+
+      updateCharts(matrix, dataSat);
+      updateTable(matrix, dataSat);
+      checkAlertLogroSat(dataSat, valEtapa);
+      checkAlertNivelC(matrix['C'], valEtapa);
+    }
+
+    // EVALUACIÓN Y DESPLIEGUE DE ALERTA PARA LOGRO SATISFACTORIO (A + AD)
+    function checkAlertLogroSat(dataSat, etapaSeleccionada) {
+      const alertContainer = document.getElementById('alertContainerSat');
+      const alertText = document.getElementById('alertTextSat');
+
+      let lastDiff = 0;
+      let evalLabel = "";
+
+      if (etapaSeleccionada !== 'TODOS') {
+        const idx = ETAPAS_ORDEN.indexOf(etapaSeleccionada);
+        if (idx > 0) {
+          lastDiff = parseFloat((dataSat[idx] - dataSat[idx - 1]).toFixed(1));
+          evalLabel = `en **${ETAPAS_LABELS[idx]}** respecto a **${ETAPAS_LABELS[idx - 1]}**`;
+        }
+      } else {
+        for (let i = dataSat.length - 1; i > 0; i--) {
+          if (dataSat[i] > 0 && dataSat[i - 1] > 0) {
+            lastDiff = parseFloat((dataSat[i] - dataSat[i - 1]).toFixed(1));
+            evalLabel = `en **${ETAPAS_LABELS[i]}** respecto a **${ETAPAS_LABELS[i - 1]}**`;
+            break;
+          }
+        }
+      }
+
+      if (lastDiff > 0) {
+        alertContainer.className = "rounded-lg p-4 border border-emerald-500 bg-emerald-100 text-emerald-900 flex items-center gap-3 shadow-md animate-bounce";
+        alertText.innerHTML = `🎉 <strong>¡EXCELENTE NOTICIA!</strong> El Logro Satisfactorio (A + AD) se incrementó en **+${lastDiff}%** ${evalLabel}.`;
+        alertContainer.classList.remove('hidden');
+      } else if (lastDiff < 0) {
+        alertContainer.className = "rounded-lg p-4 border border-red-500 bg-red-100 text-red-900 flex items-center gap-3 shadow-md animate-pulse";
+        alertText.innerHTML = `🚨 <strong>¡ALERTA ROJA!</strong> El Logro Satisfactorio (A + AD) disminuyó en **${lastDiff}%** ${evalLabel}. Requiere atención prioritaria.`;
+        alertContainer.classList.remove('hidden');
+      } else {
+        alertContainer.className = "rounded-lg p-4 border border-slate-300 bg-slate-100 text-slate-800 flex items-center gap-3 shadow-sm";
+        alertText.innerHTML = `ℹ️ <strong>LOGRO SATISFACTORIO ESTABLE:</strong> No se identificaron variaciones drásticas en la combinación A + AD para este período.`;
+        alertContainer.classList.remove('hidden');
+      }
+    }
+
+    // EVALUACIÓN Y DESPLIEGUE DE ALERTA PARA EL NIVEL C
+    function checkAlertNivelC(dataC, etapaSeleccionada) {
+      const alertContainer = document.getElementById('alertContainerC');
+      const alertText = document.getElementById('alertTextC');
+      
+      let hasIncrease = false;
+      let increaseDetails = [];
+
+      if (etapaSeleccionada !== 'TODOS') {
+        const idx = ETAPAS_ORDEN.indexOf(etapaSeleccionada);
+        if (idx > 0) {
+          const prevVal = dataC[idx - 1];
+          const currVal = dataC[idx];
+          const diff = parseFloat((currVal - prevVal).toFixed(1));
+
+          if (diff > 0) {
+            hasIncrease = true;
+            increaseDetails.push(`Se registró un incremento de **+${diff}%** en el Nivel C en el período **${ETAPAS_LABELS[idx]}** respecto a **${ETAPAS_LABELS[idx - 1]}**.`);
+          }
+        }
+      } else {
+        for (let i = 1; i < dataC.length; i++) {
+          if (dataC[i] > dataC[i - 1] && dataC[i - 1] > 0) {
+            const diff = parseFloat((dataC[i] - dataC[i - 1]).toFixed(1));
+            hasIncrease = true;
+            increaseDetails.push(`En **${ETAPAS_LABELS[i]}** el Nivel C aumentó **+${diff}%** frente a **${ETAPAS_LABELS[i - 1]}**.`);
+          }
+        }
+      }
+
+      if (hasIncrease) {
+        alertContainer.className = "rounded-lg p-4 border border-red-400 bg-red-100 text-red-900 flex items-center gap-3 shadow-md animate-pulse";
+        alertText.innerHTML = `⚠️ <strong>¡ALERTA PEDAGÓGICA!</strong> El Nivel de Logro C (En Inicio) ha presentado un incremento. ${increaseDetails.join(' ')}`;
+        alertContainer.classList.remove('hidden');
+      } else {
+        alertContainer.className = "rounded-lg p-4 border border-emerald-300 bg-emerald-50 text-emerald-900 flex items-center gap-3 shadow-sm";
+        alertText.innerHTML = `✅ <strong>ESTADO ESTABLE:</strong> No se detectaron incrementos de riesgo en el Nivel C para la selección actual.`;
+        alertContainer.classList.remove('hidden');
+      }
+    }
+
+    function buildBarChart(ctx, label, data, color, textColor = '#ffffff') {
+      return new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ETAPAS_LABELS,
+          datasets: [{
+            label: label,
+            data: data,
+            backgroundColor: color,
+            barPercentage: 0.45,
+            categoryPercentage: 0.8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            datalabels: {
+              anchor: 'center',
+              align: 'center',
+              color: textColor,
+              font: { weight: 'bold', size: 12 },
+              formatter: (val) => val > 0 ? val + '%' : ''
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              max: 100,
+              ticks: { callback: (v) => v + '%' },
+              grid: { color: '#e2e8f0' }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { weight: 'bold', size: 10 } }
+            }
+          }
+        }
+      });
+    }
+
+    function updateCharts(matrix, dataSat) {
+      if (chartSat) chartSat.destroy();
+      if (chartC) chartC.destroy();
+      if (chartB) chartB.destroy();
+      if (chartA) chartA.destroy();
+      if (chartAD) chartAD.destroy();
+
+      chartSat = buildBarChart(document.getElementById('chartLogroSat').getContext('2d'), 'Logro Satisfactorio (A+AD)', dataSat, '#008744', '#ffffff');
+      chartC = buildBarChart(document.getElementById('chartNivelC').getContext('2d'), 'Nivel C', matrix['C'], '#b30000', '#ffffff');
+      chartB = buildBarChart(document.getElementById('chartNivelB').getContext('2d'), 'Nivel B', matrix['B'], '#ffb000', '#1e293b');
+      chartA = buildBarChart(document.getElementById('chartNivelA').getContext('2d'), 'Nivel A', matrix['A'], '#7ac143', '#1e293b');
+      chartAD = buildBarChart(document.getElementById('chartNivelAD').getContext('2d'), 'Nivel AD', matrix['AD'], '#008744', '#ffffff');
+    }
+
+    function updateTable(matrix, dataSat) {
+      ['C', 'B', 'A', 'AD'].forEach(nivel => {
+        matrix[nivel].forEach((val, idx) => {
+          const cell = document.getElementById(`cell-${nivel}-${idx}`);
+          if (cell) cell.textContent = `${val}%`;
+        });
+      });
+
+      dataSat.forEach((val, idx) => {
+        const satCell = document.getElementById(`cell-Sat-${idx}`);
+        if (satCell) satCell.textContent = `${val}%`;
+      });
+
+      for (let i = 0; i < 5; i++) {
+        const sum = matrix['C'][i] + matrix['B'][i] + matrix['A'][i] + matrix['AD'][i];
+        const totCell = document.getElementById(`cell-tot-${i}`);
+        if (totCell) totCell.textContent = `${Math.round(sum)}%`;
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      lucide.createIcons();
+      fetchGoogleSheetsData();
+    });
+  </script>
+</body>
+</html>
